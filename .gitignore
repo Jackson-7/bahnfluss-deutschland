@@ -71,3 +71,4 @@ Thumbs.db
 #custom
 *.python-version
 bahnfluss-deutschland.code-workspace
+data/
