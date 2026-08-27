@@ -1,0 +1,73 @@
+# Python bytecode and generated files
+__pycache__/
+*.py[oc]
+*$py.class
+
+# Packaging and build outputs
+build/
+dist/
+wheels/
+*.egg-info
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Jupyter notebooks
+.ipynb_checkpoints/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Data analysis inputs and generated outputs
+data/*
+datasets/*
+artifacts/
+outputs/
+reports/*
+figures/
+models/
+*.csv
+*.tsv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.sqlite
+*.sqlite3
+!data/.gitkeep
+!datasets/.gitkeep
+!reports/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+#custom
+*.python-version
+bahnfluss-deutschland.code-workspace
