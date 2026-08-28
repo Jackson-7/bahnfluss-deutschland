@@ -1,154 +1,151 @@
 # Bahnfluss Deutschland
 
-Scheduled German train movement analysis and visualization from GTFS timetable feeds.
+Scheduled German train movement analysis and visualisation from GTFS timetable feeds.
 
-## Current Status
+The project reads the local GTFS feed folders in `data/` and generates dark-theme rail maps, timestamp frames, a train-movement GIF, and activity statistics.
 
-Done:
+## Commands
 
-- Service-date filtering from `calendar.txt` and `calendar_dates.txt`
-- Rail-only trip filtering
-- Static active rail map for a GTFS service date
-- One timestamp frame showing active train movements at a chosen service-day time
-- A first compressed GIF animation path for the service day
-- Activity statistics CSV and plot
+Show all CLI options through the root wrapper.
 
-Still pending:
+```bash
+uv run python main.py --help
+```
 
-- MP4 rendering, once FFmpeg is available
-- Shape-based interpolation, once a feed with `shapes.txt` is available
+Show all CLI options through the package command.
 
-## Generate Everything
+```bash
+uv run bahnfluss-deutschland --help
+```
 
-Run the root wrapper without flags to generate every output currently supported:
+Generate every currently supported output.
 
 ```bash
 uv run python main.py
 ```
 
-If you prefer running `main.py` directly from your editor, edit `RUN_ARGS` near
-the top of `main.py`:
-
-```python
-RUN_ARGS = ["--date", "2026-08-22", "--animate", "--step-minutes", "30", "--fps", "8"]
-```
-
-Set it back to `None` when you want normal terminal arguments again.
-
-This writes:
-
-```text
-outputs/active_rail_map_YYYY-MM-DD.png
-outputs/train_positions_YYYY-MM-DD_07-12.png
-outputs/train_animation_YYYY-MM-DD.gif
-outputs/train_activity_stats_YYYY-MM-DD.csv
-outputs/train_activity_plot_YYYY-MM-DD.png
-```
-
-You can still run individual outputs with the flags below.
-
-## Milestone 1: Static Active Rail Map
-
-Generate a static map of rail services active on a chosen GTFS service date:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22
-```
-
-You can also run the root wrapper directly:
+Generate only the static active rail map.
 
 ```bash
 uv run python main.py --date 2026-08-22
 ```
 
-The first version uses the available DELFI/GTFS tables:
+Generate one timestamp frame.
 
-- `calendar.txt`
-- `calendar_dates.txt`
-- `routes.txt`
-- `trips.txt`
-- `stop_times.txt`
-- `stops.txt`
+```bash
+uv run python main.py --time 07:12
+```
 
-The current local feeds do not include `shapes.txt`, so this milestone renders fallback stop-to-stop geometry. That is enough to validate service-date filtering and activity coverage before building timestamp frames and animation.
+Generate one after-midnight GTFS service-day timestamp frame.
+
+```bash
+uv run python main.py --time 25:10:00
+```
+
+Generate the train-movement GIF.
+
+```bash
+uv run python main.py --animate
+```
+
+Generate a faster, smaller GIF preview.
+
+```bash
+uv run python main.py --animate --step-minutes 30 --fps 8 --trail-frames 6
+```
+
+Generate a custom time interval GIF.
+
+```bash
+uv run python main.py --animate --start-time 06:00 --end-time 10:00 --step-minutes 5
+```
+
+Generate the activity CSV and activity plot.
+
+```bash
+uv run python main.py --stats
+```
+
+Generate stats with customised name and paths.
+
+```bash
+uv run python main.py --stats --output outputs/activity.csv --plot-output outputs/activity.png
+```
+
+# Outputs
+
+With the default date `2026-08-22`, the full run writes:
+
+```text
+outputs/active_rail_map_2026-08-22.png
+outputs/train_positions_2026-08-22_07-12.png
+outputs/train_animation_2026-08-22.gif
+outputs/train_activity_stats_2026-08-22.csv
+outputs/train_activity_plot_2026-08-22.png
+```
+
+The GIF uses fading trails behind trains. The current local environment supports GIF output through Pillow; MP4 export should be added after FFmpeg is available.
+
+## Arguments
+
+| Argument                    | Use case                                                                                                                                 | Default                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `--data-dir DATA_DIR`     | Point to a different folder containing GTFS feed folders.                                                                                | `data/`                                |
+| `--date YYYY-MM-DD`       | Select the GTFS service date.                                                                                                            | `2026-08-22`                           |
+| `--output PATH`           | Set the main output path for the selected mode. For static/time/animation this is the image or GIF path; for stats this is the CSV path. | Mode-specific                            |
+| `--all`                   | Generate static map, timestamp frame, GIF, stats CSV, and stats plot.`uv run python main.py` does this when no args are passed.        | Off                                      |
+| `--time HH:MM[:SS]`       | Generate one timestamp frame. GTFS service-day times above 24 hours are supported, such as`25:10:00`.                                  | Off                                      |
+| `--animate`               | Generate the train-movement GIF.                                                                                                         | Off                                      |
+| `--stats`                 | Generate active-train counts as CSV plus an activity plot.                                                                               | Off                                      |
+| `--plot-output PATH`      | Set the activity plot PNG path when using`--stats`.                                                                                    | `outputs/train_activity_plot_DATE.png` |
+| `--start-time HH:MM[:SS]` | Start time for animation or stats.                                                                                                       | `00:00`                                |
+| `--end-time HH:MM[:SS]`   | End time for animation or stats.                                                                                                         | `24:00`                                |
+| `--step-minutes N`        | Time interval between animation frames or stats samples. Smaller values are smoother/finer but slower and larger.                        | Animation:`10`; stats: `1`           |
+| `--fps N`                 | GIF playback speed.                                                                                                                      | `12`                                   |
+| `--trail-frames N`        | Number of previous animation frames shown as fading train trails. Higher values create longer trails and denser GIFs.                    | `8`                                    |
+
+## Time Format
+
+GTFS service-day time can go beyond normal 24-hour clock time. For service date `2026-08-22`:
+
+```text
+01:10:00 = 2026-08-22 01:10
+25:10:00 = 2026-08-23 01:10, still part of the 2026-08-22 GTFS service day
+```
+
+This matters for night trains and services continuing after midnight.
 
 ## Rail Categories
 
-The local GTFS feeds use `route_type=2` for rail services, so the five-way category split is inferred from `route_short_name` prefixes plus the source feed:
+The local GTFS feeds use `route_type=2` for rail services, so the five-way category split is inferred from `route_short_name` prefixes and the source feed:
 
-- `regional`: default regional rail services such as RB, RE, REX, MEX, and uncategorized regional-feed rail routes
-- `s_bahn_local`: S-Bahn and local rail prefixes such as S, RS, RT, U, A, L, and similar local systems
-- `intercity`: IC, EC, FLX, and related long-distance prefixes
-- `high_speed`: ICE, ECE, RJ/RJX, TGV, THA, and GTFS extended high-speed rail route types when present
-- `night_train`: EN, NJ, and GTFS extended sleeper rail route types when present
+| Category         | Examples                                                      |
+| ---------------- | ------------------------------------------------------------- |
+| `regional`     | RB, RE, REX, MEX, and uncategorized regional-feed rail routes |
+| `s_bahn_local` | S, RS, RT, U, A, L, and similar local systems                 |
+| `intercity`    | IC, EC, FLX, and related long-distance prefixes               |
+| `high_speed`   | ICE, ECE, RJ/RJX, TGV, THA                                    |
+| `night_train`  | EN, NJ, and GTFS sleeper rail route types when present        |
 
-These rules live in `src/bahnfluss_deutschland/gtfs_categories.py` so they can be refined as more GTFS feeds are added.
+The rules live in `src/bahnfluss_deutschland/gtfs_categories.py` and can be refined as more GTFS feeds are added.
 
-## Milestone 2: Timestamp Frame
+## Data Sources and Notes
 
-Render active train positions for a service-day timestamp:
+The GTFS feeds were downloaded from the [gtfs.de feed catalogue](https://gtfs.de/en/feeds/).
+This project currently uses only:
 
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --time 07:12
-```
+- `Long Distance Rail Germany`
+- `Regional Rail Germany`
 
-GTFS service-day times above 24 hours are supported:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --time 25:10:00
-```
-
-The frame output is written to:
+The current local feeds include:
 
 ```text
-outputs/train_positions_YYYY-MM-DD_HH-MM-or-HH-MM-SS.png
+calendar.txt
+calendar_dates.txt
+routes.txt
+trips.txt
+stop_times.txt
+stops.txt
 ```
 
-## Milestone 3: Animation Preview
-
-Render a compressed service-day GIF:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --animate
-```
-
-Useful preview settings:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --animate --step-minutes 30 --fps 8
-```
-
-Add longer or shorter fading motion trails:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --animate --trail-frames 9
-```
-
-The default animation uses 10-minute frame steps and 8 fading trail frames. For a smaller preview GIF, use a coarser step:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --animate --step-minutes 30
-```
-
-The local environment currently supports GIF output through Pillow. MP4 output should be added after FFmpeg is available.
-
-## Milestone 4: Activity Statistics
-
-Generate per-minute active train counts and a plot:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --stats
-```
-
-Outputs:
-
-```text
-outputs/train_activity_stats_YYYY-MM-DD.csv
-outputs/train_activity_plot_YYYY-MM-DD.png
-```
-
-Use a coarser interval for quick experiments:
-
-```bash
-uv run bahnfluss-deutschland --date 2026-08-22 --stats --step-minutes 5
-```
+They do not include `shapes.txt`, so map geometry and animation movement use stop-to-stop interpolation. Shape-based interpolation should be added when a GTFS feed with `shapes.txt` is available.

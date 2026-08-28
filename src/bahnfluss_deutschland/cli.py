@@ -20,7 +20,7 @@ DEFAULT_FRAME_TIME = "07:12"
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="bahnfluss-deutschland",
-        description="Build scheduled German rail visualizations from GTFS feeds.",
+        description="Build scheduled German rail visualisations from GTFS feeds.",
     )
     parser.add_argument(
         "--data-dir",

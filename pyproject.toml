@@ -1,7 +1,7 @@
 [project]
 name = "bahnfluss-deutschland"
 version = "0.1.0"
-description = "Add your description here"
+description = "Scheduled German train movement analysis and visualisation from GTFS timetable feeds."
 readme = "README.md"
 authors = [
     { name = "Jackson-7", email = "65776593+Jackson-7@users.noreply.github.com" }
