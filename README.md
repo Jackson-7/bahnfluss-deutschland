@@ -4,6 +4,8 @@ Scheduled German train movement analysis and visualisation from GTFS timetable f
 
 The project reads the local GTFS feed folders in `data/` and generates dark-theme rail maps, timestamp frames, a train-movement GIF, and activity statistics.
 
+See [DATASET.md](DATASET.md) for the GTFS file meanings, data-source references, and analysis caveats.
+
 ## Commands
 
 Show all CLI options through the root wrapper.
@@ -72,7 +74,7 @@ Generate stats with customised name and paths.
 uv run python main.py --stats --output outputs/activity.csv --plot-output outputs/activity.png
 ```
 
-# Outputs
+## Outputs
 
 With the default date `2026-08-22`, the full run writes:
 
@@ -85,25 +87,26 @@ outputs/train_activity_plot_2026-08-22.png
 ```
 
 The GIF uses fading trails behind trains. The current local environment supports GIF output through Pillow; MP4 export should be added after FFmpeg is available.
+
 Map-style outputs include a faint Germany outline from [Natural Earth 1:10m Admin 0 Countries](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/) as a visual reference layer.
 
 ## Arguments
 
-| Argument                    | Use case                                                                                                                                 | Default                                  |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `--data-dir DATA_DIR`     | Point to a different folder containing GTFS feed folders.                                                                                | `data/`                                |
-| `--date YYYY-MM-DD`       | Select the GTFS service date.                                                                                                            | `2026-08-22`                           |
-| `--output PATH`           | Set the main output path for the selected mode. For static/time/animation this is the image or GIF path; for stats this is the CSV path. | Mode-specific                            |
-| `--all`                   | Generate static map, timestamp frame, GIF, stats CSV, and stats plot.`uv run python main.py` does this when no args are passed.        | Off                                      |
-| `--time HH:MM[:SS]`       | Generate one timestamp frame. GTFS service-day times above 24 hours are supported, such as`25:10:00`.                                  | Off                                      |
-| `--animate`               | Generate the train-movement GIF.                                                                                                         | Off                                      |
-| `--stats`                 | Generate active-train counts as CSV plus an activity plot.                                                                               | Off                                      |
-| `--plot-output PATH`      | Set the activity plot PNG path when using`--stats`.                                                                                    | `outputs/train_activity_plot_DATE.png` |
-| `--start-time HH:MM[:SS]` | Start time for animation or stats.                                                                                                       | `00:00`                                |
-| `--end-time HH:MM[:SS]`   | End time for animation or stats.                                                                                                         | `24:00`                                |
-| `--step-minutes N`        | Time interval between animation frames or stats samples. Smaller values are smoother/finer but slower and larger.                        | Animation:`10`; stats: `1`           |
-| `--fps N`                 | GIF playback speed.                                                                                                                      | `12`                                   |
-| `--trail-frames N`        | Number of previous animation frames shown as fading train trails. Higher values create longer trails and denser GIFs.                    | `8`                                    |
+| Argument | Use case | Default |
+| --- | --- | --- |
+| `--data-dir DATA_DIR` | Point to a different folder containing GTFS feed folders. | `data/` |
+| `--date YYYY-MM-DD` | Select the GTFS service date. | `2026-08-22` |
+| `--output PATH` | Set the main output path for the selected mode. For static/time/animation this is the image or GIF path; for stats this is the CSV path. | Mode-specific |
+| `--all` | Generate static map, timestamp frame, GIF, stats CSV, and stats plot. `uv run python main.py` does this when no args are passed. | Off |
+| `--time HH:MM[:SS]` | Generate one timestamp frame. GTFS service-day times above 24 hours are supported, such as `25:10:00`. | Off |
+| `--animate` | Generate the train-movement GIF. | Off |
+| `--stats` | Generate active-train counts as CSV plus an activity plot. | Off |
+| `--plot-output PATH` | Set the activity plot PNG path when using `--stats`. | `outputs/train_activity_plot_DATE.png` |
+| `--start-time HH:MM[:SS]` | Start time for animation or stats. | `00:00` |
+| `--end-time HH:MM[:SS]` | End time for animation or stats. | `24:00` |
+| `--step-minutes N` | Time interval between animation frames or stats samples. Smaller values are smoother/finer but slower and larger. | Animation: `10`; stats: `1` |
+| `--fps N` | GIF playback speed. | `12` |
+| `--trail-frames N` | Number of previous animation frames shown as fading train trails. Higher values create longer trails and denser GIFs. | `8` |
 
 ## Time Format
 
@@ -150,4 +153,5 @@ stops.txt
 ```
 
 They do not include `shapes.txt`, so map geometry and animation movement use stop-to-stop interpolation. Shape-based interpolation should be added when a GTFS feed with `shapes.txt` is available.
+
 The Germany outline in the background comes from [Natural Earth 1:10m Admin 0 Countries](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/), filtered to `ISO_A3=DEU`; it is not used for routing or measurement.
