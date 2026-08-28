@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from bahnfluss_deutschland.gtfs_basemap import add_germany_watermark
 from bahnfluss_deutschland.gtfs_categories import (
     CATEGORY_COLORS,
     CATEGORY_LABELS,
@@ -133,6 +134,7 @@ def render_activity_plot(stats, service_date, output_path):
     fig.subplots_adjust(top=0.72)
     fig.patch.set_facecolor(BACKGROUND)
     ax.set_facecolor(BACKGROUND)
+    add_germany_watermark(ax)
 
     ax.plot(
         hours,

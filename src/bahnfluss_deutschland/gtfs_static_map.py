@@ -7,6 +7,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import to_rgba
 from tqdm import tqdm
 
+from bahnfluss_deutschland.gtfs_basemap import add_germany_map_background
 from bahnfluss_deutschland.gtfs_categories import (
     CATEGORY_COLORS,
     CATEGORY_LABELS,
@@ -170,6 +171,7 @@ def render_static_map(segments, summaries, service_date, output_path):
     fig.subplots_adjust(bottom=0.09)
     ax.set_facecolor(BACKGROUND)
     fig.patch.set_facecolor(BACKGROUND)
+    add_germany_map_background(ax)
 
     legend_handles = []
     category_groups = dict(tuple(unique_links.groupby("category")))

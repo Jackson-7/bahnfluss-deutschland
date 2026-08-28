@@ -5,6 +5,7 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import to_rgba
 from tqdm import tqdm
 
+from bahnfluss_deutschland.gtfs_basemap import add_germany_map_background
 from bahnfluss_deutschland.gtfs_categories import (
     CATEGORY_COLORS,
     CATEGORY_LABELS,
@@ -271,6 +272,7 @@ def render_timestamp_frame(positions, segments, service_date, frame_seconds, out
     fig.subplots_adjust(bottom=0.09)
     ax.set_facecolor(BACKGROUND)
     fig.patch.set_facecolor(BACKGROUND)
+    add_germany_map_background(ax)
     add_network_background(ax, segments)
 
     legend_handles = []
@@ -371,6 +373,7 @@ def create_animation(
     fig.subplots_adjust(bottom=0.09)
     ax.set_facecolor(BACKGROUND)
     fig.patch.set_facecolor(BACKGROUND)
+    add_germany_map_background(ax)
     add_network_background(ax, background_segments, alpha=ANIMATION_NETWORK_LINE_ALPHA)
     style_germany_axis(ax)
 

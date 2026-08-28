@@ -85,6 +85,7 @@ outputs/train_activity_plot_2026-08-22.png
 ```
 
 The GIF uses fading trails behind trains. The current local environment supports GIF output through Pillow; MP4 export should be added after FFmpeg is available.
+Map-style outputs include a faint Germany outline from [Natural Earth 1:10m Admin 0 Countries](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/) as a visual reference layer.
 
 ## Arguments
 
@@ -149,3 +150,4 @@ stops.txt
 ```
 
 They do not include `shapes.txt`, so map geometry and animation movement use stop-to-stop interpolation. Shape-based interpolation should be added when a GTFS feed with `shapes.txt` is available.
+The Germany outline in the background comes from [Natural Earth 1:10m Admin 0 Countries](https://www.naturalearthdata.com/downloads/10m-cultural-vectors/10m-admin-0-countries/), filtered to `ISO_A3=DEU`; it is not used for routing or measurement.
