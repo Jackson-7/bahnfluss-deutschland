@@ -7,6 +7,20 @@ from matplotlib.collections import LineCollection
 from matplotlib.colors import to_rgba
 from tqdm import tqdm
 
+from bahnfluss_deutschland.gtfs_categories import (
+    CATEGORY_COLORS,
+    CATEGORY_LABELS,
+    CATEGORY_ORDER,
+    classify_route,
+)
+from bahnfluss_deutschland.gtfs_theme import (
+    BACKGROUND,
+    FOREGROUND,
+    MUTED,
+    STATIC_LINE_ALPHA_MAX,
+    STATIC_LINE_ALPHA_MIN,
+)
+
 
 RAIL_ROUTE_TYPES = {"2", "100", "101", "102", "103", "105", "106", "107", "109"}
 
@@ -63,20 +77,37 @@ def load_active_rail_stop_times(feed, service_date):
         in {"route_id", "route_type", "route_short_name", "route_long_name"},
     )
     routes = routes[routes["route_type"].isin(RAIL_ROUTE_TYPES)]
+    routes["category"] = routes.apply(
+        lambda row: classify_route(
+            row.get("route_short_name"),
+            route_type=row.get("route_type"),
+            feed_label=feed["label"],
+        ),
+        axis=1,
+    )
+    routes["color"] = routes["category"].map(CATEGORY_COLORS)
 
     trips = pd.read_csv(
         feed_path / "trips.txt",
         dtype={"route_id": "string", "service_id": "string", "trip_id": "string"},
     )
     trips = trips[trips["service_id"].isin(service_ids)]
-    trips = trips.merge(routes[["route_id", "route_type"]], on="route_id", how="inner")
+    trips = trips.merge(
+        routes[["route_id", "route_type", "route_short_name", "category", "color"]],
+        on="route_id",
+        how="inner",
+    )
 
     stop_times = pd.read_csv(
         feed_path / "stop_times.txt",
         dtype={"trip_id": "string", "stop_id": "string"},
         usecols=["trip_id", "arrival_time", "departure_time", "stop_id", "stop_sequence"],
     )
-    stop_times = stop_times.merge(trips[["trip_id", "route_id"]], on="trip_id", how="inner")
+    stop_times = stop_times.merge(
+        trips[["trip_id", "route_id", "category", "color"]],
+        on="trip_id",
+        how="inner",
+    )
 
     stops = pd.read_csv(
         feed_path / "stops.txt",
@@ -88,7 +119,6 @@ def load_active_rail_stop_times(feed, service_date):
     stop_times = stop_times.dropna(subset=["stop_sequence", "stop_lat", "stop_lon"])
     stop_times = stop_times.sort_values(["trip_id", "stop_sequence"])
     stop_times["feed"] = feed["label"]
-    stop_times["color"] = feed["color"]
 
     summary = {
         "label": feed["label"],
@@ -97,6 +127,7 @@ def load_active_rail_stop_times(feed, service_date):
         "stop_times": len(stop_times),
         "segments": 0,
         "uses_shapes": (feed_path / "shapes.txt").exists(),
+        "category_trips": trips.groupby("category")["trip_id"].nunique().to_dict(),
     }
     return stop_times, summary
 
@@ -111,6 +142,7 @@ def build_stop_to_stop_segments(stop_times):
     return segments[
         [
             "feed",
+            "category",
             "color",
             "trip_id",
             "route_id",
@@ -124,16 +156,27 @@ def build_stop_to_stop_segments(stop_times):
 
 def render_static_map(segments, summaries, service_date, output_path):
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    link_columns = ["feed", "color", "stop_lon", "stop_lat", "next_stop_lon", "next_stop_lat"]
+    link_columns = [
+        "category",
+        "color",
+        "stop_lon",
+        "stop_lat",
+        "next_stop_lon",
+        "next_stop_lat",
+    ]
     unique_links = segments.groupby(link_columns, as_index=False).size()
 
     fig, ax = plt.subplots(figsize=(10, 12), dpi=180)
     fig.subplots_adjust(bottom=0.09)
-    ax.set_facecolor("#f7f7f4")
-    fig.patch.set_facecolor("#f7f7f4")
+    ax.set_facecolor(BACKGROUND)
+    fig.patch.set_facecolor(BACKGROUND)
 
     legend_handles = []
-    for label, group in tqdm(unique_links.groupby("feed"), desc="Rendering feeds"):
+    category_groups = dict(tuple(unique_links.groupby("category")))
+    for category in tqdm(CATEGORY_ORDER, desc="Rendering categories"):
+        if category not in category_groups:
+            continue
+        group = category_groups[category]
         color = group["color"].iloc[0]
         lines = [
             ((row.stop_lon, row.stop_lat), (row.next_stop_lon, row.next_stop_lat))
@@ -142,12 +185,28 @@ def render_static_map(segments, summaries, service_date, output_path):
         weights = group["size"].clip(upper=60)
         collection = LineCollection(
             lines,
-            colors=[to_rgba(color, alpha=0.04 + min(weight / 60, 1) * 0.22) for weight in weights],
-            linewidths=0.15 + (weights / 60) * 0.7,
+            colors=[
+                to_rgba(
+                    color,
+                    alpha=STATIC_LINE_ALPHA_MIN
+                    + min(weight / 60, 1)
+                    * (STATIC_LINE_ALPHA_MAX - STATIC_LINE_ALPHA_MIN),
+                )
+                for weight in weights
+            ],
+            linewidths=0.18 + (weights / 60) * 0.85,
             capstyle="round",
         )
         ax.add_collection(collection)
-        legend_handles.append(plt.Line2D([0], [0], color=color, linewidth=2, label=label))
+        legend_handles.append(
+            plt.Line2D(
+                [0],
+                [0],
+                color=color,
+                linewidth=2,
+                label=CATEGORY_LABELS[category],
+            )
+        )
 
     ax.set_xlim(5.4, 15.3)
     ax.set_ylim(47.1, 55.2)
@@ -157,15 +216,18 @@ def render_static_map(segments, summaries, service_date, output_path):
     for spine in ax.spines.values():
         spine.set_visible(False)
 
+    category_counts = segments.groupby("category")["trip_id"].nunique().to_dict()
     summary_text = " | ".join(
-        f"{summary['label']}: {summary['active_trips']:,} trips, {summary['segments']:,} segments"
-        for summary in summaries
+        f"{CATEGORY_LABELS[category]}: {category_counts[category]:,} trips"
+        for category in CATEGORY_ORDER
+        if category in category_counts
     )
     ax.set_title(
         f"Scheduled German Rail Activity - {service_date:%Y-%m-%d}",
         fontsize=16,
         fontweight="bold",
         pad=14,
+        color=FOREGROUND,
     )
     ax.text(
         0.5,
@@ -176,11 +238,13 @@ def render_static_map(segments, summaries, service_date, output_path):
         ha="center",
         va="top",
         fontsize=8,
-        color="#424242",
+        color=MUTED,
     )
-    ax.legend(handles=legend_handles, loc="upper left", frameon=False, fontsize=9)
+    legend = ax.legend(handles=legend_handles, loc="upper left", frameon=False, fontsize=9)
+    for text in legend.get_texts():
+        text.set_color(FOREGROUND)
 
-    fig.savefig(output_path, bbox_inches="tight", pad_inches=0.26)
+    fig.savefig(output_path, bbox_inches="tight", pad_inches=0.26, facecolor=fig.get_facecolor())
     plt.close(fig)
 
 
