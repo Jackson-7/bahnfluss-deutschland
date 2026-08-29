@@ -57,13 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--stats",
         action="store_true",
-        help="Write active train counts over time as CSV plus an activity plot.",
-    )
-    parser.add_argument(
-        "--plot-output",
-        type=Path,
-        default=None,
-        help="Path for the generated activity plot when using --stats.",
+        help="Write active train counts over time as CSV.",
     )
     parser.add_argument(
         "--start-time",
@@ -160,28 +154,20 @@ def run_animation(
     )
 
 
-def run_activity_stats(
-    data_dir, service_date, output, plot_output, start_time, end_time, step_minutes
-):
+def run_activity_stats(data_dir, service_date, output, start_time, end_time, step_minutes):
     output = (
         output
         or PROJECT_ROOT / f"outputs/train_activity_stats_{service_date:%Y-%m-%d}.csv"
-    )
-    plot_output = (
-        plot_output
-        or PROJECT_ROOT / f"outputs/train_activity_plot_{service_date:%Y-%m-%d}.png"
     )
     summary = create_activity_outputs(
         data_dir,
         service_date,
         output,
-        plot_output,
         start_time=start_time,
         end_time=end_time,
         step_minutes=step_minutes,
     )
     print(f"Wrote {output}")
-    print(f"Wrote {plot_output}")
     print(
         f"{summary['rows']:,} samples. Peak {summary['peak_total']:,} at "
         f"{summary['peak_time']}; low {summary['low_total']:,} at "
@@ -218,7 +204,6 @@ def main(argv=None) -> None:
             args.data_dir,
             service_date,
             None,
-            None,
             args.start_time,
             args.end_time,
             1,
@@ -239,7 +224,6 @@ def main(argv=None) -> None:
             args.data_dir,
             service_date,
             args.output,
-            args.plot_output,
             args.start_time,
             args.end_time,
             args.step_minutes or 1,

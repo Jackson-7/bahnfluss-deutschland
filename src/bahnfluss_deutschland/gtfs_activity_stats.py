@@ -1,24 +1,7 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
-from bahnfluss_deutschland.gtfs_basemap import add_germany_watermark
-from bahnfluss_deutschland.gtfs_categories import (
-    CATEGORY_COLORS,
-    CATEGORY_LABELS,
-    CATEGORY_ORDER,
-)
-from bahnfluss_deutschland.gtfs_theme import (
-    BACKGROUND,
-    FOREGROUND,
-    GRID,
-    MUTED,
-    PLOT_FILL_ALPHA,
-    PLOT_LINE_ALPHA,
-    SPINE,
-    TOTAL,
-    TOTAL_LINE_ALPHA,
-)
+from bahnfluss_deutschland.gtfs_categories import CATEGORY_ORDER
 from bahnfluss_deutschland.gtfs_timestamp_frame import (
     format_service_time,
     load_interpolation_data,
@@ -121,95 +104,10 @@ def summarize_activity_stats(stats, step_minutes):
     }
 
 
-def render_activity_plot(stats, service_date, output_path):
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    feed_columns = [
-        column
-        for column in stats.columns
-        if column not in {"service_seconds", "service_time", "total"}
-    ]
-    hours = stats["service_seconds"] / 3600
-
-    fig, ax = plt.subplots(figsize=(12, 5.6), dpi=180)
-    fig.subplots_adjust(top=0.72)
-    fig.patch.set_facecolor(BACKGROUND)
-    ax.set_facecolor(BACKGROUND)
-    add_germany_watermark(ax)
-
-    ax.plot(
-        hours,
-        stats["total"],
-        color=TOTAL,
-        linewidth=2.0,
-        alpha=TOTAL_LINE_ALPHA,
-        label="total",
-    )
-    for column in [category for category in CATEGORY_ORDER if category in feed_columns]:
-        ax.fill_between(
-            hours,
-            stats[column],
-            color=CATEGORY_COLORS[column],
-            alpha=PLOT_FILL_ALPHA,
-            linewidth=0,
-        )
-        ax.plot(
-            hours,
-            stats[column],
-            color=CATEGORY_COLORS[column],
-            linewidth=1.2,
-            alpha=PLOT_LINE_ALPHA,
-            label=CATEGORY_LABELS[column],
-        )
-
-    peak = stats.loc[stats["total"].idxmax()]
-    peak_hour = peak["service_seconds"] / 3600
-    ax.scatter([peak_hour], [peak["total"]], color=TOTAL, alpha=TOTAL_LINE_ALPHA, s=22, zorder=4)
-    ax.annotate(
-        f"Peak {peak['service_time']} ({int(peak['total']):,})",
-        xy=(peak_hour, peak["total"]),
-        xytext=(8, 10),
-        textcoords="offset points",
-        fontsize=8,
-        color=FOREGROUND,
-    )
-
-    fig.suptitle(
-        f"Scheduled German Rail Activity - {service_date:%Y-%m-%d}",
-        fontsize=14,
-        fontweight="bold",
-        y=0.97,
-        color=FOREGROUND,
-    )
-    ax.set_xlabel("Service-day hour")
-    ax.set_ylabel("Active train movements")
-    ax.xaxis.label.set_color(FOREGROUND)
-    ax.yaxis.label.set_color(FOREGROUND)
-    ax.tick_params(colors=MUTED)
-    ax.grid(True, color=GRID, linewidth=0.6, alpha=0.72)
-    legend = ax.legend(
-        frameon=False,
-        ncols=3,
-        loc="upper center",
-        bbox_to_anchor=(0.5, 0.91),
-        bbox_transform=fig.transFigure,
-    )
-    for text in legend.get_texts():
-        text.set_color(FOREGROUND)
-    for name, spine in ax.spines.items():
-        if name in {"top", "right"}:
-            spine.set_visible(False)
-        else:
-            spine.set_color(SPINE)
-
-    fig.savefig(output_path, bbox_inches="tight", pad_inches=0.18, facecolor=fig.get_facecolor())
-    plt.close(fig)
-
-
 def create_activity_outputs(
     data_dir,
     service_date,
     csv_output_path,
-    plot_output_path,
     start_time="00:00",
     end_time="24:00",
     step_minutes=1,
@@ -223,5 +121,4 @@ def create_activity_outputs(
     )
     csv_output_path.parent.mkdir(parents=True, exist_ok=True)
     stats.to_csv(csv_output_path, index=False)
-    render_activity_plot(stats, service_date, plot_output_path)
     return summarize_activity_stats(stats, step_minutes)

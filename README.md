@@ -62,7 +62,7 @@ Generate a custom time interval GIF.
 uv run python main.py --animate --start-time 06:00 --end-time 10:00 --step-minutes 5
 ```
 
-Generate the activity CSV and activity plot.
+Generate the activity CSV.
 
 ```bash
 uv run python main.py --stats
@@ -92,21 +92,21 @@ Map-style outputs include a faint Germany outline from [Natural Earth 1:10m Admi
 
 ## Arguments
 
-| Argument | Use case | Default |
-| --- | --- | --- |
-| `--data-dir DATA_DIR` | Point to a different folder containing GTFS feed folders. | `data/` |
-| `--date YYYY-MM-DD` | Select the GTFS service date. | `2026-08-22` |
-| `--output PATH` | Set the main output path for the selected mode. For static/time/animation this is the image or GIF path; for stats this is the CSV path. | Mode-specific |
-| `--all` | Generate static map, timestamp frame, GIF, stats CSV, and stats plot. `uv run python main.py` does this when no args are passed. | Off |
-| `--time HH:MM[:SS]` | Generate one timestamp frame. GTFS service-day times above 24 hours are supported, such as `25:10:00`. | Off |
-| `--animate` | Generate the train-movement GIF. | Off |
-| `--stats` | Generate active-train counts as CSV plus an activity plot. | Off |
-| `--plot-output PATH` | Set the activity plot PNG path when using `--stats`. | `outputs/train_activity_plot_DATE.png` |
-| `--start-time HH:MM[:SS]` | Start time for animation or stats. | `00:00` |
-| `--end-time HH:MM[:SS]` | End time for animation or stats. | `24:00` |
-| `--step-minutes N` | Time interval between animation frames or stats samples. Smaller values are smoother/finer but slower and larger. | Animation: `10`; stats: `1` |
-| `--fps N` | GIF playback speed. | `12` |
-| `--trail-frames N` | Number of previous animation frames shown as fading train trails. Higher values create longer trails and denser GIFs. | `8` |
+| Argument                    | Use case                                                                                                                                 | Default                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `--data-dir DATA_DIR`     | Point to a different folder containing GTFS feed folders.                                                                                | `data/`                                |
+| `--date YYYY-MM-DD`       | Select the GTFS service date.                                                                                                            | `2026-08-22`                           |
+| `--output PATH`           | Set the main output path for the selected mode. For static/time/animation this is the image or GIF path; for stats this is the CSV path. | Mode-specific                            |
+| `--all`                   | Generate static map, timestamp frame, GIF, stats CSV, and stats plot.`uv run python main.py` does this when no args are passed.        | Off                                      |
+| `--time HH:MM[:SS]`       | Generate one timestamp frame. GTFS service-day times above 24 hours are supported, such as`25:10:00`.                                  | Off                                      |
+| `--animate`               | Generate the train-movement GIF.                                                                                                         | Off                                      |
+| `--stats`                 | Generate active-train counts as CSV plus an activity plot.                                                                               | Off                                      |
+| `--plot-output PATH`      | Set the activity plot PNG path when using`--stats`.                                                                                    | `outputs/train_activity_plot_DATE.png` |
+| `--start-time HH:MM[:SS]` | Start time for animation or stats.                                                                                                       | `00:00`                                |
+| `--end-time HH:MM[:SS]`   | End time for animation or stats.                                                                                                         | `24:00`                                |
+| `--step-minutes N`        | Time interval between animation frames or stats samples. Smaller values are smoother/finer but slower and larger.                        | Animation:`10`; stats: `1`           |
+| `--fps N`                 | GIF playback speed.                                                                                                                      | `12`                                   |
+| `--trail-frames N`        | Number of previous animation frames shown as fading train trails. Higher values create longer trails and denser GIFs.                    | `8`                                    |
 
 ## Time Format
 
