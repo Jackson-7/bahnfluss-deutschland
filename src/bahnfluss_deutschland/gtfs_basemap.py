@@ -12,6 +12,8 @@ from bahnfluss_deutschland.gtfs_theme import (
     MAP_FILL_ALPHA,
     MAP_OUTLINE,
     MAP_OUTLINE_ALPHA,
+    NEIGHBOUR_OUTLINE,
+    NEIGHBOUR_OUTLINE_ALPHA,
 )
 
 
@@ -19,6 +21,11 @@ GERMANY_BOUNDARY_PATH = (
     Path(__file__).resolve().parent
     / "assets"
     / "germany_natural_earth_10m.geojson"
+)
+NEIGHBOUR_BOUNDARY_PATH = (
+    Path(__file__).resolve().parent
+    / "assets"
+    / "germany_neighbours_natural_earth_10m.geojson"
 )
 
 
@@ -31,12 +38,11 @@ def _iter_geometry_polygons(geometry):
         raise ValueError(f"Unsupported boundary geometry type: {geometry['type']}")
 
 
-@lru_cache(maxsize=1)
-def load_germany_boundary():
-    if not GERMANY_BOUNDARY_PATH.exists():
+def _load_boundary_file(path):
+    if not path.exists():
         return []
 
-    with GERMANY_BOUNDARY_PATH.open(encoding="utf-8") as file:
+    with path.open(encoding="utf-8") as file:
         geojson = json.load(file)
 
     polygons = []
@@ -50,6 +56,16 @@ def load_germany_boundary():
             if rings:
                 polygons.append(rings)
     return polygons
+
+
+@lru_cache(maxsize=1)
+def load_germany_boundary():
+    return _load_boundary_file(GERMANY_BOUNDARY_PATH)
+
+
+@lru_cache(maxsize=1)
+def load_neighbour_boundaries():
+    return _load_boundary_file(NEIGHBOUR_BOUNDARY_PATH)
 
 
 def _path_from_rings(rings, transform=lambda lon, lat: (lon, lat)):
@@ -84,6 +100,18 @@ def _ring_segments(rings, transform=lambda lon, lat: (lon, lat)):
 def add_germany_map_background(
     ax, fill_alpha=MAP_FILL_ALPHA, outline_alpha=MAP_OUTLINE_ALPHA
 ):
+    neighbour_polygons = load_neighbour_boundaries()
+    for rings in neighbour_polygons:
+        outline = LineCollection(
+            _ring_segments(rings),
+            colors=[to_rgba(NEIGHBOUR_OUTLINE, NEIGHBOUR_OUTLINE_ALPHA)],
+            linewidths=0.42,
+            capstyle="round",
+            joinstyle="round",
+            zorder=-1,
+        )
+        ax.add_collection(outline)
+
     polygons = load_germany_boundary()
     if not polygons:
         return

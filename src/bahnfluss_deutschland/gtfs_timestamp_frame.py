@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.collections import LineCollection
@@ -21,6 +22,7 @@ from bahnfluss_deutschland.gtfs_theme import (
     ANIMATION_NETWORK_LINE_ALPHA,
     BACKGROUND,
     FOREGROUND,
+    GRID,
     MUTED,
     NETWORK_LINE_ALPHA,
     POINT_ALPHA,
@@ -28,6 +30,10 @@ from bahnfluss_deutschland.gtfs_theme import (
     TRAIL_ALPHA_MIN,
     TRAIL_FRAMES,
 )
+
+
+DISPLAY_LEGEND_CATEGORIES = ["regional", "s_bahn_local", "intercity", "high_speed"]
+LONG_DISTANCE_CATEGORIES = {"intercity", "high_speed", "night_train"}
 
 
 def parse_gtfs_time(value):
@@ -57,6 +63,12 @@ def format_service_time(seconds):
     hours, remainder = divmod(int(seconds), 3600)
     minutes, seconds = divmod(remainder, 60)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def format_short_service_time(seconds):
+    hours, remainder = divmod(int(seconds), 3600)
+    minutes = remainder // 60
+    return f"{hours:02d}:{minutes:02d}"
 
 
 def default_feeds(data_dir):
@@ -265,17 +277,197 @@ def add_network_background(ax, segments, alpha=NETWORK_LINE_ALPHA):
         ax.add_collection(collection)
 
 
-def render_timestamp_frame(positions, segments, service_date, frame_seconds, output_path):
+def daily_peak_time(movement_segments, start_seconds=0, end_seconds=24 * 3600):
+    sample_seconds = list(range(start_seconds, end_seconds + 1, 60))
+    if not sample_seconds or movement_segments.empty:
+        return None, 0
+
+    departures = movement_segments["departure_seconds"].to_numpy(dtype=float)
+    arrivals = movement_segments["next_arrival_seconds"].to_numpy(dtype=float)
+    sample_count = len(sample_seconds)
+
+    start_indices = np.ceil((departures - start_seconds) / 60).astype(np.int64)
+    end_indices = np.floor((arrivals - start_seconds) / 60).astype(np.int64)
+    valid = (
+        (end_indices >= 0)
+        & (start_indices < sample_count)
+        & (end_indices >= start_indices)
+        & (arrivals > departures)
+    )
+
+    start_indices = np.clip(start_indices[valid], 0, sample_count - 1)
+    end_indices = np.clip(end_indices[valid], 0, sample_count - 1)
+
+    diff = np.zeros(sample_count + 1, dtype=np.int64)
+    np.add.at(diff, start_indices, 1)
+    np.add.at(diff, end_indices + 1, -1)
+    counts = np.cumsum(diff[:-1])
+    peak_index = int(counts.argmax())
+    return sample_seconds[peak_index], int(counts[peak_index])
+
+
+def frame_summary_text(positions, peak_seconds):
+    total = len(positions)
+    if total:
+        category_counts = positions["category"].value_counts()
+        regional_share = category_counts.get("regional", 0) / total
+        long_distance_share = (
+            sum(category_counts.get(category, 0) for category in LONG_DISTANCE_CATEGORIES)
+            / total
+        )
+    else:
+        regional_share = 0.0
+        long_distance_share = 0.0
+
+    peak_text = format_short_service_time(peak_seconds) if peak_seconds is not None else "n/a"
+    return (
+        f"Active movements: {total:,}  |  Peak today: {peak_text}  |  "
+        f"Regional share: {regional_share:.0%}  |  "
+        f"Long-distance share: {long_distance_share:.0%}"
+    )
+
+
+def add_category_legend(fig):
+    handles = [
+        plt.Line2D(
+            [0],
+            [0],
+            color=CATEGORY_COLORS[category],
+            lw=2.5,
+            label=CATEGORY_LABELS[category],
+        )
+        for category in DISPLAY_LEGEND_CATEGORIES
+    ]
+    legend = fig.legend(
+        handles=handles,
+        loc="upper center",
+        ncols=len(handles),
+        frameon=False,
+        bbox_to_anchor=(0.5, 0.905),
+        fontsize=8,
+        handlelength=2.0,
+        columnspacing=1.5,
+    )
+    for text in legend.get_texts():
+        text.set_color(FOREGROUND)
+    return legend
+
+
+def add_time_progress_bar(ax, frame_seconds, start_seconds=0, end_seconds=24 * 3600):
+    left, right, y = 0.22, 0.78, -0.125
+    progress = (
+        (frame_seconds - start_seconds) / (end_seconds - start_seconds)
+        if end_seconds > start_seconds
+        else 0
+    )
+    progress = min(max(progress, 0), 1)
+    marker_x = left + (right - left) * progress
+
+    ax.plot(
+        [left, right],
+        [y, y],
+        transform=ax.transAxes,
+        color=GRID,
+        linewidth=2.2,
+        alpha=0.9,
+        solid_capstyle="round",
+        clip_on=False,
+    )
+    progress_line = ax.plot(
+        [left, marker_x],
+        [y, y],
+        transform=ax.transAxes,
+        color=FOREGROUND,
+        linewidth=2.2,
+        alpha=0.72,
+        solid_capstyle="round",
+        clip_on=False,
+    )[0]
+    marker = ax.plot(
+        [marker_x],
+        [y],
+        transform=ax.transAxes,
+        marker="o",
+        markersize=5,
+        color=FOREGROUND,
+        alpha=0.95,
+        clip_on=False,
+    )[0]
+    ax.text(
+        left - 0.025,
+        y,
+        format_short_service_time(start_seconds),
+        transform=ax.transAxes,
+        ha="right",
+        va="center",
+        fontsize=8,
+        color=MUTED,
+        clip_on=False,
+    )
+    ax.text(
+        right + 0.025,
+        y,
+        format_short_service_time(end_seconds),
+        transform=ax.transAxes,
+        ha="left",
+        va="center",
+        fontsize=8,
+        color=MUTED,
+        clip_on=False,
+    )
+    time_label = ax.text(
+        marker_x,
+        y - 0.035,
+        format_short_service_time(frame_seconds),
+        transform=ax.transAxes,
+        ha="center",
+        va="top",
+        fontsize=8,
+        color=FOREGROUND,
+        clip_on=False,
+    )
+    return progress_line, marker, time_label
+
+
+def update_time_progress_bar(
+    progress_artists,
+    frame_seconds,
+    start_seconds=0,
+    end_seconds=24 * 3600,
+):
+    progress_line, marker, time_label = progress_artists
+    left, right, y = 0.22, 0.78, -0.125
+    progress = (
+        (frame_seconds - start_seconds) / (end_seconds - start_seconds)
+        if end_seconds > start_seconds
+        else 0
+    )
+    progress = min(max(progress, 0), 1)
+    marker_x = left + (right - left) * progress
+
+    progress_line.set_data([left, marker_x], [y, y])
+    marker.set_data([marker_x], [y])
+    time_label.set_position((marker_x, y - 0.035))
+    time_label.set_text(format_short_service_time(frame_seconds))
+
+
+def render_timestamp_frame(
+    positions,
+    segments,
+    service_date,
+    frame_seconds,
+    output_path,
+    peak_seconds=None,
+):
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(10, 12), dpi=180)
-    fig.subplots_adjust(bottom=0.09)
+    fig.subplots_adjust(top=0.84, bottom=0.16)
     ax.set_facecolor(BACKGROUND)
     fig.patch.set_facecolor(BACKGROUND)
     add_germany_map_background(ax)
     add_network_background(ax, segments)
 
-    legend_handles = []
     position_groups = dict(tuple(positions.groupby("category")))
     for category in CATEGORY_ORDER:
         if category not in position_groups:
@@ -291,17 +483,6 @@ def render_timestamp_frame(positions, segments, service_date, frame_seconds, out
             linewidths=0,
             label=CATEGORY_LABELS[category],
         )
-        legend_handles.append(
-            plt.Line2D(
-                [0],
-                [0],
-                marker="o",
-                linestyle="",
-                color=color,
-                label=f"{CATEGORY_LABELS[category]}: {len(group):,}",
-                markersize=5,
-            )
-        )
 
     style_germany_axis(ax)
 
@@ -309,24 +490,32 @@ def render_timestamp_frame(positions, segments, service_date, frame_seconds, out
         f"Scheduled German Train Positions - {service_date:%Y-%m-%d} {format_service_time(frame_seconds)}",
         fontsize=15,
         fontweight="bold",
-        pad=14,
+        pad=28,
         color=FOREGROUND,
     )
+    add_category_legend(fig)
     ax.text(
         0.5,
         -0.055,
-        "GTFS schedule data. Train positions use stop-to-stop interpolation because shapes.txt is missing.\n"
-        f"{len(positions):,} active train movements in frame.",
+        frame_summary_text(positions, peak_seconds),
+        transform=ax.transAxes,
+        ha="center",
+        va="top",
+        fontsize=9,
+        color=FOREGROUND,
+        fontweight="bold",
+    )
+    add_time_progress_bar(ax, frame_seconds)
+    ax.text(
+        0.5,
+        -0.175,
+        "GTFS schedule data. Train positions use stop-to-stop interpolation because shapes.txt is missing.",
         transform=ax.transAxes,
         ha="center",
         va="top",
         fontsize=8,
         color=MUTED,
     )
-    if legend_handles:
-        legend = ax.legend(handles=legend_handles, loc="upper left", frameon=False, fontsize=9)
-        for text in legend.get_texts():
-            text.set_color(FOREGROUND)
 
     fig.savefig(output_path, bbox_inches="tight", pad_inches=0.26, facecolor=fig.get_facecolor())
     plt.close(fig)
@@ -334,8 +523,19 @@ def render_timestamp_frame(positions, segments, service_date, frame_seconds, out
 
 def create_timestamp_frame(data_dir, service_date, frame_time, output_path):
     frame_seconds = parse_frame_time(frame_time)
-    positions, segments = load_frame_positions(data_dir, service_date, frame_seconds)
-    render_timestamp_frame(positions, segments, service_date, frame_seconds, output_path)
+    movement_segments, background_segments = load_interpolation_data(
+        data_dir, service_date
+    )
+    positions = positions_at_time(movement_segments, frame_seconds)
+    peak_seconds, _peak_count = daily_peak_time(movement_segments)
+    render_timestamp_frame(
+        positions,
+        background_segments,
+        service_date,
+        frame_seconds,
+        output_path,
+        peak_seconds=peak_seconds,
+    )
     return positions
 
 
@@ -367,10 +567,11 @@ def create_animation(
         positions_at_time(movement_segments, frame_second)
         for frame_second in tqdm(frame_seconds, desc="Sampling animation frames")
     ]
+    peak_seconds, _peak_count = daily_peak_time(movement_segments)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig, ax = plt.subplots(figsize=(10, 12), dpi=120)
-    fig.subplots_adjust(bottom=0.09)
+    fig.subplots_adjust(top=0.84, bottom=0.16)
     ax.set_facecolor(BACKGROUND)
     fig.patch.set_facecolor(BACKGROUND)
     add_germany_map_background(ax)
@@ -407,11 +608,24 @@ def create_animation(
             linewidths=0,
             zorder=20,
         )
-    title = ax.set_title("", fontsize=15, fontweight="bold", pad=14, color=FOREGROUND)
-    caption = ax.text(
+    title = ax.set_title("", fontsize=15, fontweight="bold", pad=28, color=FOREGROUND)
+    add_category_legend(fig)
+    stats_strip = ax.text(
         0.5,
         -0.055,
         "",
+        transform=ax.transAxes,
+        ha="center",
+        va="top",
+        fontsize=9,
+        color=FOREGROUND,
+        fontweight="bold",
+    )
+    progress_artists = add_time_progress_bar(ax, frame_seconds[0])
+    caption = ax.text(
+        0.5,
+        -0.175,
+        "GTFS schedule data. Stop-to-stop interpolation because shapes.txt is missing.",
         transform=ax.transAxes,
         ha="center",
         va="top",
@@ -421,7 +635,6 @@ def create_animation(
 
     def update(frame_index):
         positions = sampled_positions[frame_index]
-        caption_parts = []
         for category in CATEGORY_ORDER:
             current_group = positions[positions["category"] == category]
             current_scatters[category].set_offsets(current_group[["lon", "lat"]].to_numpy())
@@ -453,15 +666,11 @@ def create_animation(
                     ]
                 )
 
-            if not current_group.empty:
-                caption_parts.append(f"{CATEGORY_LABELS[category]} {len(current_group):,}")
         title.set_text(
             f"Scheduled German Train Positions - {service_date:%Y-%m-%d} {format_service_time(frame_seconds[frame_index])}"
         )
-        caption.set_text(
-            "GTFS schedule data. Stop-to-stop interpolation because shapes.txt is missing.\n"
-            f"{len(positions):,} active movements | {' | '.join(caption_parts)}"
-        )
+        stats_strip.set_text(frame_summary_text(positions, peak_seconds))
+        update_time_progress_bar(progress_artists, frame_seconds[frame_index])
         return [
             artist
             for category_collections in trail_lines.values()
@@ -469,6 +678,8 @@ def create_animation(
         ] + [
             *current_scatters.values(),
             title,
+            stats_strip,
+            *progress_artists,
             caption,
         ]
 
