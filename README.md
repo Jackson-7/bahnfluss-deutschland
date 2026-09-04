@@ -1,4 +1,6 @@
-# Bahnfluss Deutschland
+![Bahnfluss Deutschland banner](src/bahnfluss_deutschland/assets/banner.png)
+
+# Bahnfluss Deutschland - Trainflow Germany
 
 Scheduled German train movement analysis and visualisation from GTFS timetable feeds.
 
