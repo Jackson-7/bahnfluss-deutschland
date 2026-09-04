@@ -143,15 +143,25 @@ This project currently uses only:
 - `Long Distance Rail Germany`
 - `Regional Rail Germany`
 
-The current local feeds include:
+The included local GTFS feed folders are:
 
 ```text
+data/intercity_de-aug22_2026
+data/regional_de-aug22_2026
+```
+
+Each feed folder includes:
+
+```text
+agency.txt
+attributions.txt
 calendar.txt
 calendar_dates.txt
+feed_info.txt
 routes.txt
-trips.txt
 stop_times.txt
 stops.txt
+trips.txt
 ```
 
 They do not include `shapes.txt`, so map geometry and animation movement use stop-to-stop interpolation. Shape-based interpolation should be added when a GTFS feed with `shapes.txt` is available.
